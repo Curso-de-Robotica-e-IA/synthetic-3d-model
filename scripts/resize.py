@@ -23,18 +23,17 @@ def process_images(folder_path):
     for ext in image_extensions:
         image_paths.extend(glob.glob(os.path.join(folder_path, '**', ext), recursive=True))
     
-    output_folder = os.path.join(folder_path, "resized")
-    os.makedirs(output_folder, exist_ok=True)
-    
     for image_path in image_paths:
         print(f"Processando: {image_path}")
         img = cv2.imread(image_path)
+        if img is None:
+            print(f"Erro ao carregar imagem: {image_path}")
+            continue
+        
         img_resized = resize_and_crop(img)
         
-        filename = os.path.basename(image_path)
-        output_path = os.path.join(output_folder, filename)
-        cv2.imwrite(output_path, img_resized)
-        print(f"Imagem salva em: {output_path}")
+        cv2.imwrite(image_path, img_resized)
+        print(f"Imagem salva em: {image_path}")
 
 if __name__ == "__main__":
     folder = input("Digite o caminho da pasta: ")

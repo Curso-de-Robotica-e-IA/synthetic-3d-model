@@ -5,6 +5,8 @@ import math
 import bpy_extras
 from mathutils import Vector
 from pathlib import Path
+import random
+import bpy_extras
 
 # Número de frames e caminho para salvar as imagens
 num_frames = 5
@@ -18,6 +20,7 @@ if not os.path.exists(base_path):
 annotations_dir = Path(base_path) / "annotations"
 if not annotations_dir.exists():
     annotations_dir.mkdir(parents=True)
+    
 
 def create_or_configure_circle(circle_name, location, rotation_degs, scale_value):
 
@@ -47,7 +50,7 @@ circle2 = create_or_configure_circle(
     circle_name="Circle.2",
     location=(0, 0, 0),
     rotation_degs=(0, 90, 90),
-    scale_value=2.095
+    scale_value=4
 )
 
 # Verifica existência dos objetos
@@ -59,8 +62,15 @@ camera = bpy.data.objects["Camera"]
 circle = bpy.data.objects["Circle"]
 circle2 = bpy.data.objects["Circle.2"]
 cylinder_obj = bpy.data.objects["Cylinder.001"]  # Objeto a ser anotado
+plane = bpy.data.objects["Plane"]
+
+fabric_01 = bpy.data.materials["Fabric-01"]
+fabric_02 = bpy.data.materials["Fabric-02"]
 
 camera.location = [-0.6074, -0.78266, 0.002921]
+
+bpy.context.view_layer.objects.active = cylinder_obj
+bpy.ops.object.origin_set(type='ORIGIN_CURSOR', center='BOUNDS')
 
 light = bpy.data.objects["Light.001"]
 temp_colors = {
@@ -137,6 +147,12 @@ def ensure_track_to(obj, target):
     track_to.track_axis = 'TRACK_NEGATIVE_Z'
     track_to.up_axis = 'UP_Y'
 
+def randomly_move_object_xy(obj_to_change, x_range=(-0.5, 0.5), y_range=(-0.5, 0.5)):
+    """Randomly moves an object within the XY plane"""
+    obj_to_change.location = Vector((0.0, 0.0, 0.0))
+    obj_to_change.location.x = random.uniform(*x_range)
+    obj_to_change.location.y = random.uniform(*y_range)
+
 def render_trajectory(
     circle_obj, 
     prefix, 
@@ -189,9 +205,6 @@ def render_trajectory(
         angle = ((-130 * (math.pi / 180)) / num_frames) * frame_idx
         circle_obj.rotation_euler[0] = angle
 
-        bpy.context.view_layer.update()
-        bpy.ops.wm.redraw_timer(type='DRAW_WIN_SWAP', iterations=1)
-
         for lens in lens_values:
             camera.data.lens = lens
 
@@ -204,7 +217,13 @@ def render_trajectory(
                     for temp in possible_temps:
                         if temp in temp_colors:
                             light.data.color = temp_colors[temp]
+                        
                         bpy.context.view_layer.update()
+                        
+                        randomly_move_object_xy(cylinder_obj)
+                        
+                        bpy.context.view_layer.update()
+                        bpy.ops.wm.redraw_timer(type='DRAW_WIN_SWAP', iterations=1)
 
                        
                         file_name = f"{prefix}_{subframe_count:04d}.png"
@@ -247,19 +266,15 @@ def render_trajectory(
 bpy.context.scene.render.engine = 'BLENDER_EEVEE_NEXT'
 bpy.context.scene.render.image_settings.file_format = 'PNG'
 
+
+plane.data.materials.clear()
+plane.data.materials.append(fabric_01)
 # Chamada da função principal (exemplo: variação apenas na luz)
 render_trajectory(circle, "Cylinder", False, False, False)
 
-# Exemplos de chamadas com diferentes cenários:
-# Exemplo 1) Sem variações extras:
-# render_trajectory(circle, "Cube_no_variation", False, False, False)
-# Exemplo 2) Variação de lentes:
-# render_trajectory(circle2, "Cube_lenses", do_lens_variation=True, do_cylinder_rotation=False, do_light_variation=False)
-# Exemplo 3) Rotação do objeto:
-# render_trajectory(circle, "Cube_objrot", do_lens_variation=False, do_cylinder_rotation=True, do_light_variation=False)
-# Exemplo 4) Lentes + rotação do objeto:
-# render_trajectory(circle2, "Cube_both", True, True, False)
-# Exemplo 5) Apenas variação da luz:
-# render_trajectory(circle, "Cube_lightOnly", False, False, True)
-# Exemplo 6) Tudo habilitado:
-# render_trajectory(circle2, "Cube_all", True, True, True)
+plane.data.materials.clear()
+plane.data.materials.append(fabric_02)
+
+render_trajectory(circle2, "Cylinder2", False, False, False)
+
+

@@ -10,7 +10,7 @@ import bpy_extras
 
 # Número de frames e caminho para salvar as imagens
 num_frames = 5
-base_path = "C:/Users/nrc2/Downloads/Capturas_Blender"
+base_path = "/home/jedl/Downloads/Capturas_Blender"
 
 # Cria a pasta base, se não existir
 if not os.path.exists(base_path):
@@ -49,7 +49,7 @@ circle = create_or_configure_circle(
 circle2 = create_or_configure_circle(
     circle_name="Circle.2",
     location=(0, 0, 0),
-    rotation_degs=(0, 90, 90),
+    rotation_degs=(0, 90, 0),
     scale_value=4
 )
 
@@ -259,7 +259,9 @@ def render_trajectory(
                         
     circle_obj.rotation_euler[0] = 0
     cylinder_obj.rotation_euler[2] = 0
+    cylinder_obj.location = (0, -0.53363, 0.1)
     bpy.context.view_layer.update()
+    bpy.ops.wm.redraw_timer(type='DRAW_WIN_SWAP', iterations=1)
     print(f"Captura da trajetória '{prefix}' concluída!")
 
 # Configurações de renderização
@@ -276,5 +278,3 @@ plane.data.materials.clear()
 plane.data.materials.append(fabric_02)
 
 render_trajectory(circle2, "Cylinder2", False, False, False)
-
-

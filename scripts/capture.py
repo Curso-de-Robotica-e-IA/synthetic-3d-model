@@ -9,7 +9,7 @@ import random
 import bpy_extras
 
 # Número de frames e caminho para salvar as imagens
-num_frames = 5
+num_frames = 1
 base_path = "/home/jedl/Downloads/Capturas_Blender"
 
 # Cria a pasta base, se não existir
@@ -69,9 +69,6 @@ fabric_02 = bpy.data.materials["Fabric-02"]
 
 camera.location = [-0.6074, -0.78266, 0.002921]
 
-bpy.context.view_layer.objects.active = cylinder_obj
-bpy.ops.object.origin_set(type='ORIGIN_CURSOR', center='BOUNDS')
-
 light = bpy.data.objects["Light.001"]
 temp_colors = {
     3000: (1.0, 0.76, 0.64),
@@ -84,7 +81,7 @@ light_positions = [
     (2, 2, 2),
     (2, -2, 2),
     (-2, 2, 2),
-    (-2, -2, 2),
+    (-2, -2, 2)
 ]
 
 def get_bounding_box(obj_name):
@@ -103,6 +100,9 @@ def get_bounding_box(obj_name):
     max_x = max(corner.x for corner in bbox_corners)
     min_y = min(corner.y for corner in bbox_corners)
     max_y = max(corner.y for corner in bbox_corners)
+    
+    min_y = 1.0 - min_y
+    max_y = 1.0 - max_y
     
     # Converte para pixels (usando a resolução da render)
     min_x *= scene.render.resolution_x
@@ -147,7 +147,7 @@ def ensure_track_to(obj, target):
     track_to.track_axis = 'TRACK_NEGATIVE_Z'
     track_to.up_axis = 'UP_Y'
 
-def randomly_move_object_xy(obj_to_change, x_range=(-0.5, 0.5), y_range=(-0.5, 0.5)):
+def randomly_move_object_xy(obj_to_change, x_range=(-0.3, 0.3), y_range=(-0.3, 0.3)):
     """Randomly moves an object within the XY plane"""
     obj_to_change.location = Vector((0.0, 0.0, 0.0))
     obj_to_change.location.x = random.uniform(*x_range)
@@ -177,7 +177,7 @@ def render_trajectory(
         lens_values = [camera.data.lens]
 
     if do_cylinder_rotation:
-        cylinder_angles = list(range(0, 361, 60))
+        cylinder_angles = list(range(0, 360, 90))
     else:
         cylinder_angles = [0]
 
@@ -272,9 +272,9 @@ bpy.context.scene.render.image_settings.file_format = 'PNG'
 plane.data.materials.clear()
 plane.data.materials.append(fabric_01)
 # Chamada da função principal (exemplo: variação apenas na luz)
-render_trajectory(circle, "Cylinder", False, False, False)
+render_trajectory(circle, "Cylinder", True, True, True)
 
 plane.data.materials.clear()
 plane.data.materials.append(fabric_02)
 
-render_trajectory(circle2, "Cylinder2", False, False, False)
+render_trajectory(circle, "Cylinder1", True, True, True)

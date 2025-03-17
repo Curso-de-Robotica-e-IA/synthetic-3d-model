@@ -66,8 +66,9 @@ plane = bpy.data.objects["Plane"]
 
 fabric_01 = bpy.data.materials["Fabric-01"]
 fabric_02 = bpy.data.materials["Fabric-02"]
+fabric_03 = bpy.data.materials["Fabric-03"]
 
-camera.location = [-0.6074, -0.78266, 0.002921]
+camera.location = [ -1.5, 0, 0]
 
 light = bpy.data.objects["Light.001"]
 temp_colors = {
@@ -78,10 +79,10 @@ temp_colors = {
 }
 
 light_positions = [
-    (2, 2, 2),
-    (2, -2, 2),
-    (-2, 2, 2),
-    (-2, -2, 2)
+    (0.6, 0.6, 2),
+    (0.6, -0.6, 2),
+    (-0.6, 0.6, 2),
+    (-0.6, -0.6, 2)
 ]
 
 def get_bounding_box(obj_name):
@@ -100,10 +101,7 @@ def get_bounding_box(obj_name):
     max_x = max(corner.x for corner in bbox_corners)
     min_y = min(corner.y for corner in bbox_corners)
     max_y = max(corner.y for corner in bbox_corners)
-    
-    min_y = 1.0 - min_y
-    max_y = 1.0 - max_y
-    
+  
     # Converte para pixels (usando a resolução da render)
     min_x *= scene.render.resolution_x
     max_x *= scene.render.resolution_x
@@ -118,7 +116,7 @@ def write_annotations(obj_name, image_path, annotations_folder, class_id=0):
     min_x, min_y, max_x, max_y = get_bounding_box(obj_name)
     
     x_center = (min_x + max_x) / 2
-    y_center = (min_y + max_y) / 2
+    y_center = scene.render.resolution_y - (min_y + max_y) / 2
     width = max_x - min_x
     height = max_y - min_y
     
@@ -177,7 +175,7 @@ def render_trajectory(
         lens_values = [camera.data.lens]
 
     if do_cylinder_rotation:
-        cylinder_angles = list(range(0, 360, 90))
+        cylinder_angles = list(range(0, 360, 15))
     else:
         cylinder_angles = [0]
 
@@ -270,11 +268,11 @@ bpy.context.scene.render.image_settings.file_format = 'PNG'
 
 
 plane.data.materials.clear()
-plane.data.materials.append(fabric_01)
+plane.data.materials.append(fabric_03)
 # Chamada da função principal (exemplo: variação apenas na luz)
 render_trajectory(circle, "Cylinder", True, True, True)
 
 plane.data.materials.clear()
-plane.data.materials.append(fabric_02)
+plane.data.materials.append(fabric_04)
 
 render_trajectory(circle, "Cylinder1", True, True, True)

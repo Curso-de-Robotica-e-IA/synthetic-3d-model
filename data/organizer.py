@@ -28,7 +28,7 @@ def collect_images_and_labels(source_folder, dest_folder):
             file_name, file_ext = os.path.splitext(file)
             
             if file.endswith(image_extensions):
-                unique_name = f"{uuid.uuid4().hex}{file_ext}"
+                unique_name = f"validation_{uuid.uuid4().hex}{file_ext}"
                 dest_image_path = os.path.join(images_path, unique_name)
                 shutil.copy(file_path, dest_image_path)
                 
@@ -49,4 +49,4 @@ def collect_images_and_labels(source_folder, dest_folder):
     print("Coleta concluída! Todas as imagens e labels foram copiadas e renomeadas corretamente.")
 
 # Exemplo de uso
-collect_images_and_labels("./", "../data_treated_3/")
+collect_images_and_labels("./", "../data_treated/")

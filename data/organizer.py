@@ -49,4 +49,4 @@ def collect_images_and_labels(source_folder, dest_folder):
     print("Coleta concluída! Todas as imagens e labels foram copiadas e renomeadas corretamente.")
 
 # Exemplo de uso
-collect_images_and_labels("./", "../data_treated/")
+collect_images_and_labels("./", "../data_treated_2/")

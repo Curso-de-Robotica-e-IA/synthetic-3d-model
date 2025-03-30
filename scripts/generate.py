@@ -94,6 +94,11 @@ class DatasetGenerator:
         obj_to_change.location.x = random.uniform(*x_range)
         obj_to_change.location.y = random.uniform(*y_range)
     
+    def replace_material(self, obj, obj_data, mat_src, mat_dst):
+        for i in range(len(obj_data.materials)):
+            if obj_data.materials[i] == mat_src:
+                obj_data.materials[i] = mat_dst
+    
     def ensure_track_to(self, obj, target):
         for c in obj.constraints:
             if c.type == 'TRACK_TO':
@@ -203,14 +208,16 @@ class DatasetGenerator:
                         bpy.context.view_layer.update()
                         
                         if random_moves:
-                            self.randomly_move_object_xy(self.obj)
+                            if lens < 35:
+                                self.obj.location = (0, 0, 0)
+                                self.randomly_move_object_xy(self.obj, x_range=(-0.1, 0.1), y_range=(-0.1, 0.1))
+                            else:
+                                self.randomly_move_object_xy(self.obj)
                         
                         if subframe_count % 2 == 0 and len(cable_materials) > 1:
-                            self.obj.data.materials.clear()
-                            self.obj.data.materials.append(bpy.data.materials[cable_materials[1]])
-                        else:
-                            self.obj.data.materials.clear()
-                            self.obj.data.materials.append(bpy.data.materials[cable_materials[0]])
+                            self.replace_material(self.obj, self.obj.data, bpy.data.materials[cable_materials[0]], bpy.data.materials[cable_materials[1]])
+                        elif len(cable_materials) > 1:
+                            self.replace_material(self.obj, self.obj.data, bpy.data.materials[cable_materials[1]], bpy.data.materials[cable_materials[0]])
                         
                         bpy.context.view_layer.update()
                         bpy.ops.wm.redraw_timer(type='DRAW_WIN_SWAP', iterations=1)
@@ -233,7 +240,7 @@ class DatasetGenerator:
 # Exemplo de uso
 
 datasetGenerator = DatasetGenerator(
-    object=bpy.data.objects["Cylinder.001"],
+    object=bpy.data.objects["Cylinder"],
     plane_materials=["Fabric-03"]
 )
 

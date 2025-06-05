@@ -52,11 +52,15 @@ def process_folder(input_folder, output_folder, split_ratio=0.8):
 
 def create_yaml(output_folder):
     dataset_yaml = {
-        'path': os.path.abspath(output_folder),  # Caminho absoluto da pasta raiz do dataset
-        'train': 'images/train',  # Caminho relativo para as imagens de treino
-        'val': 'images/test',  # Caminho relativo para as imagens de validação
+        'path': os.path.abspath(output_folder),
+        'train': 'images/train', 
+        'val': 'images/test',
         'names': {
-            0: 'chave_fenda'  # Nome da classe (ajustado para o exemplo fornecido)
+            0: 'mosquito',
+            1: 'allis',
+            2: 'tesoura',
+            3: 'dissecacao',
+            4: 'bisturi'
         }
     }
 

@@ -6,8 +6,9 @@ import random
 random.seed(42)
 
 class AnnotationManager:
-    def __init__(self, objects):
+    def __init__(self, objects, class_id=0):
         self.objects = objects
+        self.class_id = class_id
         self.bbox = self.get_bounding_box(objects)
         self.formatted_bbox = self.format_bounding_box(self.bbox)
     
@@ -50,7 +51,7 @@ class AnnotationManager:
             
         scene = bpy.context.scene
         min_x, min_y, max_x, max_y = bbox
-        class_id = 0
+        class_id = self.class_id
         
         x_center = (min_x + max_x) / 2
         y_center = scene.render.resolution_y - (min_y + max_y) / 2
@@ -99,12 +100,12 @@ class sceneManager:
         self.lights = lights
         self.plane_materials = plane_materials
 
-    def setup_scene(self, camera_configs={"location": (0, 0, 2)}, light_configs={"location": (0, 1, 2), "color": (1.0, 1.0, 1.0), "rotation": (0, 45, 0)}):
+    def setup_scene(self, camera_configs={"location": (0, 0, 2), "distortion": (0.1159, 2.8841, -0.0074, 0.0471, -11.8008), "focal_length": 35.0}, light_configs={"location": (0, 1, 2), "color": (1.0, 1.0, 1.0), "rotation": (0, 45, 0), "energy": 100}):
         # Configura a câmera
-        self.setup_camera(camera_configs["location"])
+        self.setup_camera(camera_configs["location"], camera_configs["distortion"], camera_configs["focal_length"])
 
         # Configura a luz 
-        self.light = self.setup_light(light_configs["location"], light_configs["rotation"], light_configs["color"])
+        self.light = self.setup_light(light_configs["location"], light_configs["rotation"], light_configs["color"], light_configs["energy"])
 
         # Configura o plano
         if len(self.plane_materials) > 0:
@@ -117,7 +118,7 @@ class sceneManager:
             self.plane.data.materials.clear()
             self.plane.data.materials.append(bpy.data.materials["Fabric-03"])
     
-    def setup_camera(self, location):
+    def setup_camera(self, location, distortion, focal_length):
         # Configura a câmera
         if self.camera is None:
             bpy.ops.object.camera_add(location=location)
@@ -129,9 +130,12 @@ class sceneManager:
         
         bpy.context.scene.camera = self.camera
         self.camera.data.type = 'PERSP'
-        self.camera.data.lens = 35
+        self.camera.data.lens = focal_length
+
+        # Configura a distorção da lente
+        ## TODO
     
-    def setup_light(self, location, rotation, color, light_index=0):
+    def setup_light(self, location, rotation, color, energy, light_index=0):
         # Configura a luz principal
         if self.lights is None or len(self.lights) == 0:
             bpy.ops.object.light_add(type='AREA', location=location, rotation=rotation)
@@ -143,9 +147,22 @@ class sceneManager:
         light.rotation_euler = rotation
         light.data.type = 'AREA'
         light.data.color = color
-        light.data.energy = 1000
+        light.data.energy = energy
         light.name = "Light"
-
+    
+    def hide_other_objects(self, objects):
+        selected_objects = objects
+        for obj in bpy.context.scene.objects:
+            # Não ocultar a câmera, luzes e o plano
+            if obj.type == 'CAMERA' or obj.type == 'LIGHT' or obj.name == 'Plane':
+                obj.hide_set(False)  # Mantém visível no viewport
+                obj.hide_render = False  # Mantém visível na renderização
+            elif obj not in selected_objects:
+                obj.hide_set(True)  # Oculta no viewport
+                obj.hide_render = True  # Oculta na renderização
+            else:
+                obj.hide_set(False)  # Torna visível no viewport
+                obj.hide_render = False  # Torna visível na renderização
 
 class ObjectManager:
     def __init__(self, objects):
@@ -162,7 +179,7 @@ class ObjectManager:
 
         angle_rad = math.radians(angle_degrees)
         
-        obj1.rotation_euler.z = -angle_rad
+        obj1.rotation_euler.z = obj2.rotation_euler.z - angle_rad
     
     def flip_objects(self):
         if not self.flipped:
@@ -174,26 +191,54 @@ class ObjectManager:
                 obj.scale.z *= -1
             self.flipped = False
     
-    def rotate_objects(self, angle_degrees):
+    def rotate_objects(self, angle_degrees, axis='x'):
         angle_rad = math.radians(angle_degrees)
         for obj in self.objects:
-            obj.rotation_euler.x += angle_rad
+            if axis == 'x':
+                obj.rotation_euler.x += angle_rad
+            elif axis == 'y':
+                obj.rotation_euler.y += angle_rad
+            elif axis == 'z':
+                obj.rotation_euler.z += angle_rad
+            else:
+                raise ValueError("Axis must be 'x', 'y', or 'z'.")
     
     def move_objects(self, location):
         for obj in self.objects:
             obj.location = location
     
-    def randomly_move_object(self, objects, x_range=(-0.3, 0.3), y_range=(-0.3, 0.3)):
-        x = random.uniform(*x_range)
-        y = random.uniform(*y_range)
-        for obj in objects:
-            # Move the object to a new random position
-            obj.location = Vector((x, y, obj.location.z))
-        return
+    def randomly_move(self, x_range=(-0.3, 0.3), y_range=(-0.3, 0.3), objects=None):
+        if objects is None:
+            objects = self.objects
+
+        # Pega as coordenadas globais iniciais de todos os objetos
+        initial_positions = {obj: obj.location.copy() for obj in objects}
+
+        # Verifica se a lista de objetos tem mais de um item
+        if len(objects) != 2:
+            # Mova o único objeto individualmente
+            x = random.uniform(*x_range) + initial_positions[objects[0]].x
+            y = random.uniform(*y_range) + initial_positions[objects[0]].y
+            obj = objects[0]
+            obj.location.x = x
+            obj.location.y = y
+            return
+        
+        # Se for composto por 2 objetos, move ambos juntos
+        obj1, obj2 = objects
+        x = random.uniform(*x_range) + initial_positions[obj1].x
+        y = random.uniform(*y_range) + initial_positions[obj1].y
+
+        # Move os dois objetos para a nova posição aleatória baseada nas posições iniciais
+        obj1.location.x = x
+        obj1.location.y = y
+        obj2.location.x = x
+        obj2.location.y = y
             
     def reset_objects(self):
         for obj in self.objects:
             obj.rotation_euler = (0, 0, 0)
+            obj.location = (0, 0, 0)
             obj.scale = (1, 1, 1)
             obj.hide_set(False)
         self.flipped = False
@@ -206,58 +251,127 @@ class ObjectManager:
     
     def return_objects(self):
         return self.objects
-    
-def hide_unselected_objects(objects):
-    selected_objects = objects
-    for obj in bpy.context.scene.objects:
-        # Não ocultar a câmera, luzes e o plano
-        if obj.type == 'CAMERA' or obj.type == 'LIGHT' or obj.name == 'Plane':
-            obj.hide_set(False)  # Mantém visível no viewport
-            obj.hide_render = False  # Mantém visível na renderização
-        elif obj not in selected_objects:
-            obj.hide_set(True)  # Oculta no viewport
-            obj.hide_render = True  # Oculta na renderização
-        else:
-            obj.hide_set(False)  # Torna visível no viewport
-            obj.hide_render = False  # Torna visível na renderização
 
-# Save multiple images and annotations
-def save_images_and_annotations(type, num_images, output_dir, object_manager, annotation_manager, degree_range=(30, 120)):
-    # Set object's initial state
-    object_manager.reset_objects()
-    
-    hide_unselected_objects(object_manager.return_objects())
+def generate_scenario(output_dir):
+    object_count = 0
 
-    # Set the angles for opening and closing the objects
-    degrees =  [i * (degree_range[1] - degree_range[0]) / (num_images - 1) + degree_range[0] for i in range(num_images)]
-    for i in range(num_images):
-        # Randomly move the objects to a new position
-        # object_manager.randomly_move_object(object_manager.return_objects(), x_range=(-0.3, 0.3), y_range=(-0.3, 0.3))
+    object_class = 0
 
-        # Open and close the objects at the specified angle
-        angle = degrees[i]
-        object_manager.open_and_close(angle)
+    # Process type 1: Open and close objects
+    for objects in instruments1:
+        object_manager = ObjectManager(objects)
+        annotation_manager = AnnotationManager(objects, class_id=object_class)
 
-        # Flip the objects if it's composed of two objects
-        if type == 1:
-            object_manager.flip_objects()
-        # Rotate the objects by the specified angle if it's composed of only one object
-        elif type == 2:
-            object_manager.rotate_objects(90)
-        # Rotate the objects by the specified angle if it's composed of only one object
-        elif type == 3:
-            object_manager.rotate_objects(180)
+        # Reset the objects to their initial state
+        object_manager.reset_objects()
+
+        # Hide other objects in the scene
+        scene_manager.hide_other_objects(objects)
+
+        # Generate variations
+        angles = [ 30, 45, 60, 75 ]
+
+        rotation_angles = [0, 30, 60, 90]
+
+        for angle in angles:
+            # Open and close the objects
+            object_manager.open_and_close(angle)
+
+            for rotation_angle in rotation_angles:
+                # Flip the objects
+                object_manager.flip_objects()
+
+                # Randomly move the objects to a new position
+                object_manager.randomly_move(x_range=(-0.1, 0.1), y_range=(-0.1, 0.1), objects=objects)
+                # Rotate the objects in z axis
+                object_manager.rotate_objects(rotation_angle, axis='z')
+                
+                # Save the rendered image
+                bpy.context.scene.render.filepath = f"{output_dir}/{object_count}.png"
+                bpy.ops.render.render(write_still=True)
+
+                # Update the bounding box and write the annotation
+                annotation_manager.update_bounding_box()
+                annotation_manager.write_annotation(f"{output_dir}/{object_count}.txt")
+                
+                object_count += 1
         
-        # Render the scene
-        bpy.context.scene.render.filepath = f"{output_dir}/image_{i:04d}.png"
-        bpy.ops.render.render(write_still=True)
+        object_class += 1
 
-        # Update the bounding box and formatted bounding box
-        annotation_manager.update_bounding_box()
-        
-        # Save the annotation
-        annotation_file = f"{output_dir}/image_{i:04d}.txt"
-        annotation_manager.write_annotation(annotation_file)
+    # Process type 2: Objects of four sides of interest
+    for objects in instruments2:
+        object_manager = ObjectManager(objects)
+        annotation_manager = AnnotationManager(objects, class_id=object_class)
+
+        # Reset the objects to their initial state
+        object_manager.reset_objects()
+
+        # Hide other objects in the scene
+        scene_manager.hide_other_objects(objects)
+
+        # Generate variations
+        angles = [0, 90, 180, 270]
+
+        rotation_angles = [0, 30, 60, 90]
+
+        for angle in angles:
+            # Rotate the objects in x axis
+            object_manager.rotate_objects(angle)
+
+            for rotation_angle in rotation_angles:
+
+                # Randomly move the objects to a new position
+                object_manager.randomly_move(x_range=(-0.1, 0.1), y_range=(-0.1, 0.1), objects=objects)
+                # Rotate the objects in z axis
+                object_manager.rotate_objects(rotation_angle, axis='z')
+                
+                # Save the rendered image
+                bpy.context.scene.render.filepath = f"{output_dir}/{object_count}.png"
+                bpy.ops.render.render(write_still=True)
+
+                # Update the bounding box and write the annotation
+                annotation_manager.update_bounding_box()
+                annotation_manager.write_annotation(f"{output_dir}/{object_count}.txt")
+                
+                object_count += 1
+        object_class += 1
+
+    # Process type 3: Objects of two sides of interest
+    for objects in instruments3:
+        object_manager = ObjectManager(objects)
+        annotation_manager = AnnotationManager(objects, class_id=object_class)
+
+        # Reset the objects to their initial state
+        object_manager.reset_objects()
+
+        # Hide other objects in the scene
+        scene_manager.hide_other_objects(objects)
+
+        # Generate variations
+        angles = [0, 180]
+
+        rotation_angles = [0, 15, 30, 45, 60, 75, 90, 105]
+
+        for angle in angles:
+            # Rotate the objects in x axis
+            object_manager.rotate_objects(angle)
+
+            for rotation_angle in rotation_angles:
+                # Randomly move the objects to a new position
+                object_manager.randomly_move(x_range=(-0.1, 0.1), y_range=(-0.1, 0.1), objects=objects)
+                # Rotate the objects in z axis
+                object_manager.rotate_objects(rotation_angle, axis='z')
+                
+                # Save the rendered image
+                bpy.context.scene.render.filepath = f"{output_dir}/{object_count}.png"
+                bpy.ops.render.render(write_still=True)
+
+                # Update the bounding box and write the annotation
+                annotation_manager.update_bounding_box()
+                annotation_manager.write_annotation(f"{output_dir}/{object_count}.txt")
+                
+                object_count += 1
+        object_class += 1
 
 # Initialize the SceneManager with the camera, circle, plane, lights, and materials
 camera = bpy.data.objects.get("Camera")
@@ -266,72 +380,36 @@ light_obj = bpy.data.objects.get("Light")
 lights = [light_obj] if light_obj else []
 scene_manager = sceneManager(camera, plane, lights, plane_materials=["Fabric-03"])
 
-# Define camera configurations and light configurations
+# Initialize list of objects of eacht type
+instruments1 = [[bpy.data.objects["Mosquito.001"], bpy.data.objects["Mosquito.002"]], [bpy.data.objects["Allis.044"], bpy.data.objects["Allis.033"]], [bpy.data.objects["Tesoura.052"], bpy.data.objects["Tesoura.051"]]]
+#instruments1 = [[bpy.data.objects["Cube.052"], bpy.data.objects["Cube.051"]]]
+instruments2 = [[bpy.data.objects["Pinca.002"]]]
+instruments3 = [[bpy.data.objects["Bisturi.003"]]]
+
+### 
+
+# Scenarios
 camera_configs = {
     "location": (0, 0, 2),
     "distortion": (0.1159, 2.8841, -0.0074, 0.0471, -11.8008),
     "focal_length": 35.0
 }
+
 light_configs = {
-    "location": (-1, 0, 2),
-    "color": (1.0, 1.0, 1.0),
-    "rotation": (0, -45, 0),
+    "location": (0, 0, 2),
+    "color": (1, 1, 1),
+    "rotation": (0, 0, 0),
+    "energy": 100
 }
 
-# Setup the scene
+# Setup the scene with the camera and light configurations
 scene_manager.setup_scene(camera_configs, light_configs)
+# Set the output directory for the dataset
+output_dir = f"/home/jedl/Documents/synthetic-3d-model/dataset_3"
+# Create the output directory if it doesn't exist
+import os
+if not os.path.exists(output_dir):
+    os.makedirs(output_dir)
 
-# List of objects in the scene
-instruments1 = [[bpy.data.objects["Cube.001"], bpy.data.objects["Cube.002"]], [bpy.data.objects["Cube.044"], bpy.data.objects["Cube.033"]], [bpy.data.objects["Cube.051"], bpy.data.objects["Cube.052"]]]
-instruments2 = [[bpy.data.objects["Pinca.002"]]]
-instruments3 = [[bpy.data.objects["Plane.010"]], [bpy.data.objects["Bisturi.003"]]]
-
-counter = 0
-
-for instrument in instruments1:
-    # Move the objects to the desired location
-    object_manager = ObjectManager(instrument)
-    # Reset the objects' state
-    object_manager.reset_objects()
-    # Initialize the AnnotationManager with the objects in the scene
-    annotation_manager = AnnotationManager(instrument)
-    # Define the output directory for images and annotations
-    output_directory = f"/home/jedl/Documents/synthetic-3d-model/generated/instrument_{counter}"
-    # Example usage
-    save_images_and_annotations(1, 5, output_directory, object_manager, annotation_manager, degree_range=(30, 120))
-    # Hide the objects if needed
-    object_manager.ocult_objects(instrument)
-    # Increment the counter for the next instrument
-    counter += 1
-
-for instrument in instruments2:
-    # Move the objects to the desired location
-    object_manager = ObjectManager(instrument)
-    # Reset the objects' state
-    object_manager.reset_objects()
-    # Initialize the AnnotationManager with the objects in the scene
-    annotation_manager = AnnotationManager(instrument)
-    # Define the output directory for images and annotations
-    output_directory = f"/home/jedl/Documents/synthetic-3d-model/generated/instrument_{counter}"
-    # Example usage
-    save_images_and_annotations(2, 5, output_directory, object_manager, annotation_manager, degree_range=(30, 120))
-    # Hide the objects if needed
-    object_manager.ocult_objects(instrument)
-    # Increment the counter for the next instrument
-    counter += 1
-
-for instrument in instruments3:
-    # Move the objects to the desired location
-    object_manager = ObjectManager(instrument)
-    # Reset the objects' state
-    object_manager.reset_objects()
-    # Initialize the AnnotationManager with the objects in the scene
-    annotation_manager = AnnotationManager(instrument)
-    # Define the output directory for images and annotations
-    output_directory = f"/home/jedl/Documents/synthetic-3d-model/generated/instrument_{counter}"
-    # Example usage
-    save_images_and_annotations(3, 5, output_directory, object_manager, annotation_manager, degree_range=(30, 120))
-    # Hide the objects if needed
-    object_manager.ocult_objects(instrument)
-    # Increment the counter for the next instrument
-    counter += 1
+# Generate scenario
+generate_scenario(output_dir)

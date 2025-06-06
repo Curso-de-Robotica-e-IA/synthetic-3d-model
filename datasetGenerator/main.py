@@ -3,6 +3,7 @@ import bpy_extras
 from mathutils import Vector
 import math
 import random
+import os
 random.seed(42)
 
 class AnnotationManager:
@@ -402,12 +403,8 @@ light_configs = {
     "energy": 100
 }
 
-# Setup the scene with the camera and light configurations
 scene_manager.setup_scene(camera_configs, light_configs)
-# Set the output directory for the dataset
-output_dir = f"/home/jedl/Documents/synthetic-3d-model/dataset_3"
-# Create the output directory if it doesn't exist
-import os
+output_dir = f"/home/jedl/Documents/synthetic-3d-model/datasets/dataset_1"
 if not os.path.exists(output_dir):
     os.makedirs(output_dir)
 

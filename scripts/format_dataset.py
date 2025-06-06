@@ -14,6 +14,9 @@ def process_folder(input_folder, output_folder, split_ratio=0.8):
     all_images = []
     all_labels = []
     
+    # Armazena o número único de cada arquivo de imagem
+    img_id = 0
+    
     for subfolder in os.listdir(input_folder):
         subfolder_path = os.path.join(input_folder, subfolder)
         if os.path.isdir(subfolder_path):
@@ -23,8 +26,16 @@ def process_folder(input_folder, output_folder, split_ratio=0.8):
                     label_path = os.path.splitext(img_path)[0] + '.txt'
 
                     if os.path.exists(label_path):
-                        all_images.append(img_path)
-                        all_labels.append(label_path)
+                        # Cria os novos nomes para as imagens e labels
+                        img_new_name = f"{subfolder}_{img_id}.png"
+                        label_new_name = f"{subfolder}_{img_id}.txt"
+                        
+                        # Adiciona os caminhos de destino para as imagens e anotações
+                        all_images.append((img_path, img_new_name))
+                        all_labels.append((label_path, label_new_name))
+
+                        # Incrementa o id único
+                        img_id += 1
 
     # Embaralha as imagens para dividir em treino/validação
     data = list(zip(all_images, all_labels))
@@ -36,10 +47,12 @@ def process_folder(input_folder, output_folder, split_ratio=0.8):
 
     # Função para mover as imagens e labels
     def move_files(data, data_type):
-        for img_path, label_path in data:
-            img_dest = os.path.join(output_folder, f'images/{data_type}', os.path.basename(img_path))
-            label_dest = os.path.join(output_folder, f'labels/{data_type}', os.path.basename(label_path))
+        for (img_path, img_new_name), (label_path, label_new_name) in data:
+            # Define os caminhos de destino
+            img_dest = os.path.join(output_folder, f'images/{data_type}', img_new_name)
+            label_dest = os.path.join(output_folder, f'labels/{data_type}', label_new_name)
 
+            # Copia as imagens e anotações para os diretórios de destino
             shutil.copy(img_path, img_dest)
             shutil.copy(label_path, label_dest)
 
